@@ -78,7 +78,52 @@ class TSPSolver:
 	'''
 
     def greedy(self, time_allowance=60.0):
-        pass
+        start_time = time.time()
+        matrix = self.build_start_matrix().matrix
+        route = []
+        current_city = 0
+        cost = 0
+        cities = self._scenario.getCities()
+        found = False
+        closest_city = 0
+
+        matrix[:, 0] = math.inf
+
+        while not found:
+            # find closest city
+            closest_city = 0
+            for i in range(len(matrix)):
+                if matrix[current_city][i] < matrix[current_city][closest_city]:
+                    closest_city = i
+
+            # if you cant get to the city
+            if matrix[current_city][closest_city] == math.inf:
+                if len(route) == len(matrix) - 1:
+                    found = True # succesful route
+                    continue
+                print('not found')
+                return False
+
+            # clear column and add to route
+            cost += cities[current_city].costTo(cities[closest_city])
+            matrix[:, closest_city] = math.inf
+            route.append(closest_city)
+            current_city = closest_city
+
+        # reults
+        route.append(0)
+        route_formatted = self.get_route(route)
+        results = {}
+        solution = TSPSolution(route_formatted)
+        results['soln'] = solution
+
+        results['cost'] = cost + cities[route[-1]].costTo(cities[route[0]])
+        results['time'] = time.time() - start_time
+        results['count'] = None
+        results['max'] = None
+        results['total'] = None
+        results['pruned'] = None
+        return results
 
     ''' <summary>
 		This is the entry point for the branch-and-bound algorithm that you will implement
@@ -92,12 +137,18 @@ class TSPSolver:
 
         # init start variables
         num_solutions = 0
-        random_tour = self.defaultRandomTour()
-        bssf = State(np.array([[0]]), bound=random_tour['cost']) # initial bssf bound is just a random path
         max_queue_len = 0
         total_states = 0
         pruned_num = 0
         start_time = time.time()
+
+        # take a sample of random tours and keep the best one
+        random_tour = self.defaultRandomTour()
+        for i in range(10):
+            temp = self.defaultRandomTour()
+            if temp['cost'] < random_tour['cost']:
+                random_tour = temp
+        bssf = State(np.array([[0]]), bound=random_tour['cost']) # initial bssf to best random tour cost
 
         # queue
         states = PriorityQueue()
@@ -105,11 +156,9 @@ class TSPSolver:
 
         # loop while states left in queue
         while states.qsize() > 0 and time.time() - start_time < time_allowance:
-            total_states += 1
             max_queue_len = states.qsize() if states.qsize() > max_queue_len else max_queue_len
 
             current = states.get()
-            # current = states.pop(-1)
             if current.bound >= bssf.bound:
                 pruned_num += 1  # prune
                 continue
@@ -122,16 +171,17 @@ class TSPSolver:
                     if child.bound < bssf.bound:
                         bssf = child
                 elif child.bound < bssf.bound:
-                    # states.append(child)
                     states.put(child)
+                    total_states += 1
                 else:
                     pruned_num += 1 # prune child
 
         # get the route from the best found option
-        route = self.get_route(bssf)
+        route = self.get_route(bssf.route)
 
         # if no path was found better than the random tour return that
         if len(bssf.matrix) == 1:
+            print('using random tour')
             return random_tour
 
         # return results
@@ -143,7 +193,7 @@ class TSPSolver:
         results['count'] = num_solutions
         results['soln'] = solution
         results['max'] = max_queue_len
-        results['total'] = total_states + states.qsize() # num popped + num left in queue
+        results['total'] = total_states
         results['pruned'] = pruned_num
         return results
 
@@ -156,12 +206,12 @@ class TSPSolver:
                 matrix[i][j] = cities[i].costTo(cities[j])
         return State(matrix, 'Start matrix')
 
-    def get_route(self, state):
+    def get_route(self, route):
         cities = self._scenario.getCities()
-        route = []
-        for i in state.route:
-            route.append(cities[i])
-        return route
+        result = []
+        for i in route:
+            result.append(cities[i])
+        return result
 
 
 

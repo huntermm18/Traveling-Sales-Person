@@ -25,8 +25,8 @@ class State:
 
     def __lt__(self, other):
         # prioritize route length and break tie breakers with smallest bound
-        score1 = len(self.route) * -1000 + (self.bound // 100)
-        score2 = len(other.route) * -1000 + (other.bound // 100)
+        score1 = (len(self.route) * -1000) + (self.bound // 100)
+        score2 = (len(other.route) * -1000) + (other.bound // 100)
         # lower score has higher priority
         return score1 < score2
 

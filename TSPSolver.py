@@ -16,6 +16,8 @@ from TSPClasses import *
 import heapq
 import itertools
 from State import *
+from AntColony import AntColony
+
 
 class TSPSolver:
     def __init__(self, gui_view):
@@ -87,7 +89,7 @@ class TSPSolver:
         found = False
         closest_city = 0
 
-        matrix[:, 0] = math.inf
+        # matrix[:, 0] = math.inf
 
         while not found:
             # find closest city
@@ -96,11 +98,13 @@ class TSPSolver:
                 if matrix[current_city][i] < matrix[current_city][closest_city]:
                     closest_city = i
 
+            # solution found
+            if len(route) == len(matrix):
+                found = True  # succesful route
+                continue
+
             # if you cant get to the city
             if matrix[current_city][closest_city] == math.inf:
-                if len(route) == len(matrix) - 1:
-                    found = True # succesful route
-                    continue
                 print('not found')
                 return False
 
@@ -111,13 +115,19 @@ class TSPSolver:
             current_city = closest_city
 
         # reults
-        route.append(0)
+        route_f = []
+        for i in range(len(route)):
+            route_f.append(cities[route[i]])
+        bssf = TSPSolution(route_f)
+
+        # route.append(0)
         route_formatted = self.get_route(route)
         results = {}
         solution = TSPSolution(route_formatted)
-        results['soln'] = solution
+        # results['soln'] = solution
+        results['soln'] = bssf
 
-        results['cost'] = cost + cities[route[-1]].costTo(cities[route[0]])
+        results['cost'] = bssf.cost
         results['time'] = time.time() - start_time
         results['count'] = None
         results['max'] = None
@@ -133,6 +143,7 @@ class TSPSolver:
 		not include the initial BSSF), the best solution found, and three more ints: 
 		max queue size, total number of states created, and number of pruned states.</returns> 
 	'''
+
     def branchAndBound(self, time_allowance=60.0):
 
         # init start variables
@@ -142,13 +153,18 @@ class TSPSolver:
         pruned_num = 0
         start_time = time.time()
 
-        # take a sample of random tours and keep the best one
-        random_tour = self.defaultRandomTour()
-        for i in range(10):
-            temp = self.defaultRandomTour()
-            if temp['cost'] < random_tour['cost']:
-                random_tour = temp
-        bssf = State(np.array([[0]]), bound=random_tour['cost']) # initial bssf to best random tour cost
+        # start out with greedy solution
+        start_tour = self.greedy()
+        bssf = State(np.array([[0]]), bound=start_tour['cost'])  # initial bssf with greedy cost results
+
+        # if greedy didn't work, take a sample of random tours and keep the best one
+        if bssf.bound == math.inf:
+            start_tour = self.defaultRandomTour()
+            for i in range(5):
+                temp = self.defaultRandomTour()
+                if temp['cost'] < start_tour['cost']:
+                    start_tour = temp
+            bssf = State(np.array([[0]]), bound=start_tour['cost'])  # initial bssf with best random tour cost
 
         # queue
         states = PriorityQueue()
@@ -166,23 +182,34 @@ class TSPSolver:
             # generate children of current state
             children = current.expand()
             for child in children:
+                total_states += 1
+                # check if child is a solution
                 if child.check_if_solution() and child.bound < math.inf:
-                    num_solutions += 1
                     if child.bound < bssf.bound:
+                        num_solutions += 1
                         bssf = child
+                    else:
+                        pruned_num += 1
                 elif child.bound < bssf.bound:
                     states.put(child)
-                    total_states += 1
                 else:
-                    pruned_num += 1 # prune child
+                    pruned_num += 1  # prune child
 
         # get the route from the best found option
         route = self.get_route(bssf.route)
 
-        # if no path was found better than the random tour return that
+        # if no path was found better than the initial bssf return that
         if len(bssf.matrix) == 1:
-            print('using random tour')
-            return random_tour
+            print('using start tour')
+            results = start_tour
+            end_time = time.time()
+            results['time'] = end_time - start_time
+            results['count'] = num_solutions
+            results['soln'] = start_tour['soln']
+            results['max'] = max_queue_len
+            results['total'] = total_states
+            results['pruned'] = pruned_num
+            return results
 
         # return results
         results = {}
@@ -213,8 +240,6 @@ class TSPSolver:
             result.append(cities[i])
         return result
 
-
-
     ''' <summary>
 		This is the entry point for the algorithm you'll write for your group project.
 		</summary>
@@ -223,5 +248,39 @@ class TSPSolver:
 		best solution found.  You may use the other three field however you like.
 		algorithm</returns> 
 	'''
+
     def fancy(self, time_allowance=60.0):
-        pass
+        start_time = time.time()
+
+        # create distance matrix
+        cities = self._scenario.getCities()
+        distances = np.empty(shape=(len(cities), len(cities)))
+        for i in range(len(cities)):
+            for j in range(len(cities)):
+                distances[i][j] = cities[i].costTo(cities[j]) if cities[i].costTo(cities[j]) != 0 else 3.0
+
+        # create the ant colony
+        try:
+            ant_colony = AntColony(distances, n_ants=150, n_best=110, n_iterations=100, decay=.95, p_weight=1, d_weight=1, time_limit=time_allowance)
+            shortest_path, num_solutions = ant_colony.run()
+            city_order = [cities[i[0]] for i in shortest_path[0]]
+            solution = TSPSolution(city_order)
+            print("shorted_path: {}".format(shortest_path))
+
+            # return results
+            results = {}
+            end_time = time.time()
+            results['cost'] = shortest_path[1]
+            results['time'] = end_time - start_time
+            results['count'] = num_solutions
+            results['soln'] = solution
+            results['max'] = None
+            results['total'] = None
+            results['pruned'] = None
+            return results
+
+        except:
+            # no valid route found or other error occurred
+            print('\nFancy failed. Using random. Try increasing n_ants or n_iterations.\n')
+            return self.defaultRandomTour()
+

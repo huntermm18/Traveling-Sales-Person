@@ -270,7 +270,7 @@ class TSPSolver:
             # return results
             results = {}
             end_time = time.time()
-            results['cost'] = shortest_path[1]
+            results['cost'] = solution.cost
             results['time'] = end_time - start_time
             results['count'] = num_solutions
             results['soln'] = solution

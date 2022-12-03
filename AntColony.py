@@ -3,6 +3,8 @@ import numpy as np
 from numpy.random import choice as np_choice
 import time
 
+# adapted from https://github.com/Akavall/AntColonyOptimization
+
 class AntColony(object):
 
     def __init__(self, distances, n_ants=10, n_best=10, n_iterations=10, decay=0.95, p_weight=1, d_weight=1, time_limit=60):

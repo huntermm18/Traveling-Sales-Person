@@ -18,12 +18,12 @@ class AntColony(object):
         self.alpha = p_weight
         self.beta = d_weight
         self.time_limit = time_limit
-        self.num_solutions = 0
+        self.num_solutions = 0 # number of times an ant returns with a valid path
 
     def run(self):
         shortest_path = None
         start_time = time.time()
-        all_time_shortest_path = ("placeholder", np.inf)
+        all_time_shortest_path = ('placeholder', np.inf)
 
         # loop for n_iterations
         for i in range(self.n_iterations):
@@ -41,7 +41,6 @@ class AntColony(object):
             if len(all_paths) == 0:
                 continue # no valid paths
             shortest_path = min(all_paths, key=lambda x: x[1])
-            # print (shortest_path)
 
             # update bssf if necessary
             if shortest_path[1] < all_time_shortest_path[1]:

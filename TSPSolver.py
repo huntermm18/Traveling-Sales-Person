@@ -259,13 +259,13 @@ class TSPSolver:
             for j in range(len(cities)):
                 distances[i][j] = cities[i].costTo(cities[j]) if cities[i].costTo(cities[j]) != 0 else 3.0
 
-        # create the ant colony
         try:
+            # create the ant colony
             ant_colony = AntColony(distances, n_ants=150, n_best=110, n_iterations=100, decay=.95, p_weight=1, d_weight=1, time_limit=time_allowance)
             shortest_path, num_solutions = ant_colony.run()
             city_order = [cities[i[0]] for i in shortest_path[0]]
             solution = TSPSolution(city_order)
-            print("shorted_path: {}".format(shortest_path))
+            # print("shorted_path: {}".format(shortest_path))
 
             # return results
             results = {}
